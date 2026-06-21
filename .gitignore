@@ -1,0 +1,17 @@
+# Scratch scripturi de generare (temporare, de unica folosinta)
+_temp/
+
+# Extrase OCR (text + imagini) — regenerabile cu extrage.py
+pagini_extrase/
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Loguri temporare
+*.log
+
+# Artefacte locale Claude Code (runtime / setari per-masina)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/*.lock
