@@ -11,6 +11,9 @@ __pycache__/
 # Loguri temporare
 *.log
 
+# PDF-uri sursa (mari; nu se versioneaza)
+*.pdf
+
 # Artefacte locale Claude Code (runtime / setari per-masina)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
