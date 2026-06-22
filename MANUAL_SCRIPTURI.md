@@ -178,3 +178,85 @@ telc-batch.bat "telc_b2.pdf" 10-50
 ::    daca lovesti limita: asteapta resetarea si reia exact aceeasi comanda
 ::    -> rezultat final: Z:\telc_b2_COMPLET_10_50.docx
 ```
+
+---
+
+## 10. Recuperare dupa reinstalare completa (de la zero)
+
+Daca pierzi VM-ul / Windows-ul si trebuie sa reconstruiesti tot sistemul de la zero, urmeaza pasii de mai jos in ordine. La final ar trebui sa ai exact acelasi flux functional (`telc.bat` / `telc-batch.bat`).
+
+### 1. Reinstaleaza uneltele de baza
+
+Instaleaza (de pe site-urile oficiale / installer Windows):
+
+- **Node.js LTS** (include `npm`)
+- **Git**
+- **Python 3** (bifeaza „Add Python to PATH" la instalare; aduce `pip`)
+- **Claude Code** (CLI-ul `claude`)
+
+Verifica fiecare:
+```bat
+node -v
+npm -v
+git --version
+python --version
+pip --version
+claude --version
+```
+
+### 2. Cloneaza repo-ul de pe GitHub
+
+```bat
+git clone https://github.com/cristiv123/telc-traducere-bilingva.git
+cd telc-traducere-bilingva
+```
+Asta aduce tot ce e versionat: **scripturile** (`extrage.py`, `uneste.py`, `fix.py`, `valid.py`, `telc.bat`, `telc-batch.bat`), **documentatia** (acest `MANUAL_SCRIPTURI.md`, `CLAUDE.md`) si **copia versionata a skill-ului** (in subfolderul `skill/`, fisierul `skill/SKILL.md`). PDF-ul sursa NU e in repo (vezi pasul 5).
+
+### 3. Reinstaleaza skill-ul unde il citeste Claude Code
+
+Claude Code citeste skill-ul din `C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx\SKILL.md`, NU din repo. Copiaza-l acolo (creand folderul daca nu exista). Inlocuieste `<utilizator>` cu numele tau de utilizator Windows:
+
+```bat
+mkdir "C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx"
+copy skill\SKILL.md "C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx\SKILL.md"
+```
+(In PowerShell: `New-Item -ItemType Directory -Force "C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx"` apoi `Copy-Item skill\SKILL.md "C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx\SKILL.md"`.)
+
+### 4. Instaleaza dependentele
+
+**Python** (folosite de `extrage.py` si `uneste.py`; `fix.py`/`valid.py` folosesc doar biblioteci standard):
+```bat
+pip install pymupdf docxcompose python-docx
+```
+- `pymupdf` → modulul `fitz` din `extrage.py` (extragere text + imagini din PDF).
+- `docxcompose` + `python-docx` → `uneste.py` (unirea bucatilor intr-un singur docx).
+
+**Node** — biblioteca `docx` se instaleaza **global** (scripturile de generare ruleaza cu `NODE_PATH` catre `npm root -g`):
+```bat
+npm install -g docx
+```
+
+### 5. Reconfigureaza si verifica
+
+- **PDF-ul sursa nu e in repo** (e prea mare; `.gitignore` exclude `*.pdf`). Pune-l manual in `Z:\`, cu **nume ASCII** (fara diacritice), ex. `Z:\telc_b2.pdf`. Ambele batch-uri cauta sursa in `Z:\` si scriu rezultatele tot in `Z:\`.
+- Verifica ca tot fluxul ruleaza, dintr-un **terminal normal** (cmd/PowerShell, NU din interiorul unei sesiuni Claude — vezi §1), cu o livrare mica de test:
+  ```bat
+  telc.bat "telc_b2.pdf" 28
+  ```
+  Daca genereaza `Z:\telc_b2_pagini_28.docx` si il deschide in LibreOffice, sistemul e refacut. Pentru un interval reluabil: `telc-batch.bat "telc_b2.pdf" 10-50`.
+
+### 6. NOTA — sincronizarea skill-ului (doua locuri!)
+
+Skill-ul exista in **doua** locatii:
+- **copia de lucru** pe care o citeste Claude Code: `C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx\SKILL.md`
+- **copia versionata** din repo: `skill\SKILL.md`
+
+`git clone` aduce DOAR copia versionata din repo. Invers, modificarile pe care le faci la copia de lucru NU ajung automat in repo.
+
+> **Dupa ORICE modificare a skill-ului**, copiaza-l inapoi in `skill\SKILL.md` si fa commit + push, altfel GitHub ramane cu o versiune veche si urmatoarea recuperare (pasul 3) reinstaleaza un skill invechit:
+> ```bat
+> copy "C:\Users\<utilizator>\.claude\skills\telc-bilingual-docx\SKILL.md" skill\SKILL.md
+> git add skill\SKILL.md
+> git commit -m "Actualizare skill telc-bilingual-docx"
+> git push
+> ```
