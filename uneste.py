@@ -58,6 +58,9 @@ def main():
     master = Document(files[0])
     composer = Composer(master)
     for f in files[1:]:
+        # Paragraf gol separator: fara el, ultimul tabel dintr-o bucata si primul tabel
+        # din bucata urmatoare se lipesc si Word le fuzioneaza intr-un singur tabel.
+        master.add_paragraph()
         composer.append(Document(f))
     composer.save(out)
 

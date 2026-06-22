@@ -129,10 +129,26 @@ if defined ISDONE (
 
 echo.
 echo [!K!/!TOTAL!] Procesez paginile !PG! ...
-set "PROMPT=Foloseste skill-ul telc-bilingual-docx. Genereaza un document Word bilingv germana-romana pentru paginile !PG! din PDF-ul aflat la '%SRC%'. Pasi: 1) extrage paginile !PG! ruland: python extrage.py !PG! '%SRC%' (text + imagini in pagini_extrase/); 2) compara OBLIGATORIU textul OCR cu imaginile pagina_NN.png pentru a corecta greselile de OCR; 3) tradu integral, propozitie cu propozitie, in tabel bilingv DE/RO conform skill-ului (fara diacritice in coloana romana, caractere germane corecte, bold pe termeni); 4) aplica fix-ul XML; 5) salveaza documentul .docx final exact la calea '!OUTCHUNK!'. Anunta pe scurt fiecare pas: 'Extrag paginile !PG!', 'Corectez OCR comparand cu imaginile', 'Traduc', 'Aplic fix XML', 'Salvez'. Nu cere confirmari, ruleaza pana la capat."
 
-claude --dangerously-skip-permissions -p "!PROMPT!" > "%TMPOUT%" 2>&1
+REM --- promptul se scrie INTR-UN FISIER (nu intr-o variabila lunga cu caractere
+REM     speciale sub delayed expansion, care iesea goala si facea claude sa cada tacit).
+REM     Redirect-ul e pus in fata; !PG!/!OUTCHUNK! se expandeaza, %SRC% la fel; promptul
+REM     nu contine & | < > ^ deci e sigur de echo-at. ---
+set "PROMPTFILE=%PROJ%\_temp\prompt_!LBL!.txt"
+> "!PROMPTFILE!" echo Foloseste skill-ul telc-bilingual-docx. Genereaza un document Word bilingv germana-romana pentru paginile !PG! din PDF-ul aflat la '%SRC%'. Pasi: 1) extrage paginile !PG! ruland: python extrage.py !PG! '%SRC%' (text + imagini in pagini_extrase/); 2) compara OBLIGATORIU textul OCR cu imaginile pagina_NN.png pentru a corecta greselile de OCR; 3) tradu integral, propozitie cu propozitie, in tabel bilingv DE/RO conform skill-ului (fara diacritice in coloana romana, caractere germane corecte, bold pe termeni); 4) aplica fix-ul XML; 5) salveaza documentul .docx final exact la calea '!OUTCHUNK!'. Anunta pe scurt fiecare pas: 'Extrag paginile !PG!', 'Corectez OCR comparand cu imaginile', 'Traduc', 'Aplic fix XML', 'Salvez'. Nu cere confirmari, ruleaza pana la capat.
+
+REM --- claude citeste promptul din STDIN (validat ca functioneaza) ---
+type "!PROMPTFILE!" | claude --dangerously-skip-permissions -p > "%TMPOUT%" 2>&1
+set "CLAUDE_RC=!errorlevel!"
 type "%TMPOUT%"
+
+REM --- mesaj clar daca apelul claude a esuat (sa nu mai cada tacit) ---
+if not "!CLAUDE_RC!"=="0" (
+  echo.
+  call :log "EROARE: apelul claude a esuat (cod !CLAUDE_RC!) la bucata !PG!."
+  echo Vezi iesirea de mai sus si "%TMPOUT%". Daca numele PDF are diacritice, redenumeste-l ASCII.
+  echo Promptul folosit a fost salvat in: "!PROMPTFILE!"
+)
 
 REM --- detectare limita ---
 findstr /i /c:"session limit" /c:"usage limit" /c:"resets" "%TMPOUT%" >nul
