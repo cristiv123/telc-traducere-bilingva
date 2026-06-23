@@ -33,11 +33,29 @@ mai multor părți: Teil 1, Teil 2, Fokus 1 etc.).
   greșit). Verifică mereu pe imaginea paginii de soluții și corelează cu exercițiul
   înainte de a scrie cheia. Bold pe litera-soluție și pe litera-capcană în ambele coloane.
 
+### Cheie in PDF SEPARAT, organizata pe „Lektion N" (ex. Sicher C1.1)
+
+Cand exercitiile si cheia sunt in **doua PDF-uri diferite**, iar cheia e organizata pe
+„Lektion N", regula de corelare validata este: **exercitiul `Xy` din Lektion N → solutia la
+eticheta `Xy` sub „Lektion N" in cheie (etichetele se potrivesc EXACT)**. Detaliile complete
+(detectare lectii, subfoldere `--sub ab`/`--sub loes`, adnotarea sursei
+`(din cheie: Lektion N / Xy)`, redarea FIDELA a anomaliilor de tipar — reda exact + rand de
+avertizare, NU repara tacit) sunt in skill, sectiunea „Documente cu DOUA surse separate".
+Detectarea/garda/maparea se fac cu `lectii.py` (vezi Comenzi); `.bat`-urile primesc
+`--solutii "cheie.pdf" --lectii L3` (si `--dry-run`).
+
 ## Comenzi
 
 ```bash
 # Extragere pagini (PDF page numbers, vezi avertismentul de mai jos)
 python extrage.py 14-19
+python extrage.py 4-7 "Z:\cheie.pdf" --sub loes   # in pagini_extrase/loes/ (doua PDF-uri, fara coliziune)
+
+# Detectare lectii / corelare (manuale pe "Lektion N", ex. Sicher C1.1)
+python lectii.py map    "Z:\ex.pdf" 35-50       # pagina -> Lektion (carry-forward pt. pagini fara titlu)
+python lectii.py verify "Z:\ex.pdf" 35-50 L3    # garda: lectiile detectate == lista? (exit !=0 daca nu)
+python lectii.py find   "Z:\cheie.pdf" 3        # ce pagini din cheie contin Lektion 3 (ex. 4-7)
+python lectii.py plan   "Z:\cheie.pdf" L3,L4    # mapare lectie->pagini de cheie, gata de pus in prompt
 
 # Generare docx — scriptul temporar sta in _temp\; docx npm e instalat GLOBAL, deci NODE_PATH e obligatoriu:
 NODE_PATH="$(npm root -g)" node _temp/gen_pagini_XX_YY.js
@@ -68,6 +86,11 @@ telc.bat "telc_b2.pdf" 14-19
 :: la limita de tokeni se opreste curat, iar reluarea aceleiasi comenzi continua de unde a ramas
 telc-batch.bat "telc_b2.pdf" 10-50
 telc-batch.bat "telc_b2.pdf"          :: tot fisierul
+
+:: doua PDF-uri (exercitii + cheie separata, ex. Sicher C1.1): ataseaza solutiile corelate
+:: pe eticheta exacta sub "Lektion N". --lectii e garda; --dry-run afiseaza promptul fara claude.
+telc-batch.bat "Sicher_C1_1_Arbeitsbuch_ocr.pdf" 35-50 --solutii "Sicher_C1_1_AB_Loesungen_ocr.pdf" --lectii L3
+telc.bat       "Sicher_C1_1_Arbeitsbuch_ocr.pdf" 35-50 --solutii "Sicher_C1_1_AB_Loesungen_ocr.pdf" --lectii L3 --dry-run
 ```
 
 - **Nume PDF fara diacritice / caractere speciale** — `cmd.exe` corupe diacriticele din

@@ -6,8 +6,11 @@ Utilizare:
     python extrage.py 14-19                # paginile PDF 14 pana la 19 (inclusiv)
     python extrage.py 14                   # o singura pagina
     python extrage.py 14-19 "Z:\\x.pdf"    # PDF explicit (altfel auto-detectie in folder)
+    python extrage.py 4-7 "Z:\\sol.pdf" --sub loes   # scrie in pagini_extrase/loes/
 
-Pentru fiecare pagina din interval scrie in subfolderul pagini_extrase/:
+Pentru fiecare pagina din interval scrie in subfolderul pagini_extrase/ (sau intr-un
+sub-subfolder cu --sub NUME, ex. pagini_extrase/ab/ si pagini_extrase/loes/ pentru a
+extrage din DOUA PDF-uri fara coliziune de fisiere):
     pagina_NN.txt   - textul brut (UTF-8)
     pagina_NN.png   - imaginea paginii la 150 dpi
 
@@ -16,6 +19,7 @@ Numerele sunt pagini PDF (1-based). Foloseste PyMuPDF (fitz).
 
 import sys
 import glob
+import argparse
 from pathlib import Path
 
 try:
@@ -58,26 +62,37 @@ def parseaza_interval(arg):
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("Utilizare: python extrage.py INTERVAL [CALE_PDF]\n"
-                 "  ex: python extrage.py 14-19\n"
-                 "  ex: python extrage.py 14-19 \"Z:\\manual.pdf\"")
+    parser = argparse.ArgumentParser(
+        prog="extrage.py",
+        description="Extrage text brut + PNG dintr-un PDF, pe interval de pagini.",
+        add_help=True,
+    )
+    parser.add_argument("interval", help="N sau N-M (pagini PDF, 1-based)")
+    parser.add_argument("pdf", nargs="?", default=None,
+                        help="calea PDF-ului (optional; altfel auto-detectie in folder)")
+    parser.add_argument("--sub", default=None,
+                        help="subfolder sub pagini_extrase/ (ex. ab, loes) ca sa nu se "
+                             "suprascrie paginile cand extragi din doua PDF-uri")
+    args = parser.parse_args()
 
-    pagini = parseaza_interval(sys.argv[1])
-    # argument 2 optional: calea PDF-ului. Fara el, auto-detectie in folderul curent.
-    if len(sys.argv) > 2:
-        pdf_path = sys.argv[2]
+    pagini = parseaza_interval(args.interval)
+    # PDF optional: fara el, auto-detectie in folderul curent.
+    if args.pdf is not None:
+        pdf_path = args.pdf
         import os
         if not os.path.isfile(pdf_path):
             sys.exit(f"EROARE: PDF-ul nu exista: {pdf_path}")
     else:
         pdf_path = gaseste_pdf()
 
+    # --sub: scrie intr-un sub-subfolder, altfel direct in pagini_extrase/ (retrocompatibil).
+    outdir = OUTDIR / args.sub if args.sub else OUTDIR
+
     doc = fitz.open(pdf_path)
     total = doc.page_count
-    print(f"PDF: {pdf_path}  ({total} pagini)")
+    print(f"PDF: {pdf_path}  ({total} pagini)  ->  {outdir}/")
 
-    OUTDIR.mkdir(exist_ok=True)
+    outdir.mkdir(parents=True, exist_ok=True)
 
     extrase = 0
     for n in pagini:
@@ -89,19 +104,19 @@ def main():
 
         # (1) text brut
         text = page.get_text()
-        txt_path = OUTDIR / f"pagina_{n:02d}.txt"
+        txt_path = outdir / f"pagina_{n:02d}.txt"
         txt_path.write_text(text, encoding="utf-8")
 
         # (2) imagine PNG la 150 dpi
         pix = page.get_pixmap(dpi=DPI)
-        png_path = OUTDIR / f"pagina_{n:02d}.png"
+        png_path = outdir / f"pagina_{n:02d}.png"
         pix.save(png_path)
 
         print(f"  pagina {n:>3}: {txt_path.name} ({len(text)} caractere) + {png_path.name}")
         extrase += 1
 
     doc.close()
-    print(f"Gata. {extrase} pagina/pagini extrase in {OUTDIR}/")
+    print(f"Gata. {extrase} pagina/pagini extrase in {outdir}/")
 
 
 if __name__ == "__main__":

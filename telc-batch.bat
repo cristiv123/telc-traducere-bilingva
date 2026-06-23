@@ -11,6 +11,16 @@ REM    telc-batch.bat "nume.pdf" 10-50     (un interval)
 REM    telc-batch.bat "nume.pdf" 18        (o singura pagina)
 REM    telc-batch.bat "nume.pdf"           (tot fisierul)
 REM
+REM  Flag-uri OPTIONALE (dupa interval, in orice ordine):
+REM    --solutii "cheie.pdf"   al doilea PDF (cheia), aflat tot in Z:\
+REM    --lectii  L3            lectiile asteptate (L3 sau L3,L4); OBLIGATORIU cu --solutii
+REM    --dry-run               afiseaza promptul fiecarei bucati in loc sa cheme claude
+REM
+REM  Fara --solutii: comportament identic cu inainte (doar exercitii, fara solutii).
+REM  Cu --solutii: fiecare exercitiu primeste solutia corelata pe eticheta exacta din
+REM  cheie, sub "Lektion N". Garda: daca lectiile detectate pe paginile de exercitii nu
+REM  corespund cu --lectii, se opreste.
+REM
 REM  NOTA: foloseste un nume de PDF fara diacritice / caractere
 REM  speciale (cmd.exe corupe diacriticele in nume). Ex: telc_b2.pdf
 REM ============================================================
@@ -35,6 +45,36 @@ if not "%ARG2%"=="" (
   echo(%ARG2%| findstr /r /x "[0-9][0-9]* [0-9][0-9]*-[0-9][0-9]*" >nul
   if errorlevel 1 goto :usage
 )
+
+REM --- parsare flag-uri optionale dupa arg2 (--solutii / --lectii / --dry-run) ---
+set "SOLPDF="
+set "LECTII="
+set "DRYRUN=0"
+shift
+shift
+:parseflags
+if "%~1"=="" goto :doneflags
+if /i "%~1"=="--solutii" (
+  set "SOLPDF=%~2"
+  shift
+  shift
+  goto :parseflags
+)
+if /i "%~1"=="--lectii" (
+  set "LECTII=%~2"
+  shift
+  shift
+  goto :parseflags
+)
+if /i "%~1"=="--dry-run" (
+  set "DRYRUN=1"
+  shift
+  goto :parseflags
+)
+echo.
+echo EROARE: argument necunoscut: %~1
+goto :usage
+:doneflags
 
 REM --- verificare OBLIGATORIE a existentei PDF-ului in Z:\ ---
 if not exist "%SRC%" (
@@ -81,6 +121,37 @@ set /a TOTAL=(SPAN+1)/2
 echo.
 echo === telc-batch.bat ===
 call :log "Sursa: %PDFNAME% - interval: !START!-!END! - bucati: !TOTAL!"
+
+REM --- mod SOLUTII: validare cheie + garda lectii + maparea lectie-pagini de cheie.
+REM     Flux PLAT (goto, nu un bloc imbricat) ca 'exit /b N' sa propage corect codul. ---
+set "SOLSRC="
+set "SOLMAP="
+if not defined SOLPDF goto :after_solutii
+
+if not defined LECTII (
+  echo.
+  echo EROARE: --solutii necesita si --lectii ^(ex. --lectii L3^).
+  goto :usage
+)
+set "SOLSRC=Z:\%SOLPDF%"
+if not exist "!SOLSRC!" (
+  echo.
+  echo EROARE: PDF-ul de solutii nu exista in Z:\: "!SOLSRC!"
+  exit /b 1
+)
+call :log "Cheie solutii: !SOLSRC! - lectii asteptate: %LECTII%"
+python lectii.py verify "%SRC%" !START!-!END! %LECTII%
+if errorlevel 1 (
+  call :log "Oprire: lectiile detectate nu corespund cu --lectii (vezi mesajul de mai sus)."
+  exit /b 5
+)
+for /f "delims=" %%s in ('python lectii.py plan "!SOLSRC!" %LECTII%') do set "SOLMAP=%%s"
+if not defined SOLMAP (
+  call :log "Oprire: nu am putut determina paginile de cheie pentru %LECTII%."
+  exit /b 5
+)
+call :log "Mapare solutii: !SOLMAP!"
+:after_solutii
 
 REM --- confirmare DOAR pentru tot fisierul ---
 if "%WHOLE%"=="1" (
@@ -137,6 +208,18 @@ REM     nu contine & | < > ^ deci e sigur de echo-at. ---
 set "PROMPTFILE=%PROJ%\_temp\prompt_!LBL!.txt"
 > "!PROMPTFILE!" echo Foloseste skill-ul telc-bilingual-docx. Genereaza un document Word bilingv germana-romana pentru paginile !PG! din PDF-ul aflat la '%SRC%'. Pasi: 1) extrage paginile !PG! ruland: python extrage.py !PG! '%SRC%' (text + imagini in pagini_extrase/); 2) compara OBLIGATORIU textul OCR cu imaginile pagina_NN.png pentru a corecta greselile de OCR; 3) tradu integral, propozitie cu propozitie, in tabel bilingv DE/RO conform skill-ului (fara diacritice in coloana romana, caractere germane corecte, bold pe termeni); 4) aplica fix-ul XML; 5) salveaza documentul .docx final exact la calea '!OUTCHUNK!'. Anunta pe scurt fiecare pas: 'Extrag paginile !PG!', 'Corectez OCR comparand cu imaginile', 'Traduc', 'Aplic fix XML', 'Salvez'. Nu cere confirmari, ruleaza pana la capat.
 
+REM --- augmentare cu solutii (doar daca --solutii a fost dat); fara '<' '>' ca sa nu strice echo ---
+if defined SOLPDF >> "!PROMPTFILE!" echo SOLUTII (vezi sectiunea 'doua surse' din skill): cheia de raspunsuri e in PDF-ul separat '!SOLSRC!'. Maparea lectie-pagini de cheie: !SOLMAP!. Pentru fiecare exercitiu de pe aceste pagini: determina lectia din titlul 'Lektion N' (confirmat pe imagine), extrage paginile de cheie ale ACELEI lectii cu python extrage.py PAGINILE_DE_CHEIE '!SOLSRC!' --sub loes, si adauga la finalul tabelului exercitiului o sectiune de solutii cu eticheta 'SOLUTII / LOESUNGEN - Lektion N / Xy (din cheie: Lektion N / Xy)' si raspunsul corelat pe ETICHETA EXACTA (exercitiul Xy ia solutia Xy de sub 'Lektion N' in cheie). Corecteaza cheia compacta pe imagine (e sistematic corupta de OCR). Reda FIDEL anomaliile de tipar din cheie: scrie exact cum e tiparit si adauga un rand de avertizare cu completarea logica, NU repara tacit.
+
+REM --- DRY-RUN: afiseaza promptul bucatii si treci mai departe, fara claude/unire ---
+if "%DRYRUN%"=="1" (
+  echo.
+  echo === DRY-RUN prompt bucata !PG! ===
+  type "!PROMPTFILE!"
+  echo.
+  goto :next_chunk
+)
+
 REM --- claude citeste promptul din STDIN (validat ca functioneaza) ---
 type "!PROMPTFILE!" | claude --dangerously-skip-permissions -p > "%TMPOUT%" 2>&1
 set "CLAUDE_RC=!errorlevel!"
@@ -167,6 +250,14 @@ set /a I+=2
 goto :chunk_loop
 
 :all_chunks_done
+
+REM --- DRY-RUN: am afisat promptul pentru toate bucatile; nu executam si nu unim ---
+if "%DRYRUN%"=="1" (
+  echo.
+  call :log "DRY-RUN complet: am afisat promptul fiecarei bucati, fara executie/unire."
+  endlocal
+  exit /b 0
+)
 
 REM ============================================================
 REM  UNIRE FINALA (toate bucatile OK)
@@ -229,14 +320,18 @@ echo cu reluare la limita de tokeni si unire finala intr-un singur document.
 echo Sursa PDF se afla in Z:\, iar rezultatele se salveaza tot in Z:\.
 echo.
 echo Sintaxa:
-echo   telc-batch.bat "nume.pdf" N-M     (un interval, ex. 10-50)
+echo   telc-batch.bat "nume.pdf" N-M [--solutii "cheie.pdf" --lectii L3] [--dry-run]
 echo   telc-batch.bat "nume.pdf" N       (o singura pagina, ex. 18)
 echo   telc-batch.bat "nume.pdf"         (tot fisierul)
 echo.
 echo Exemple:
-echo   telc-batch.bat "telc_b2.pdf" 18
 echo   telc-batch.bat "telc_b2.pdf" 10-50
-echo   telc-batch.bat "telc_b2.pdf"
+echo   telc-batch.bat "Sicher_C1_1_Arbeitsbuch_ocr.pdf" 35-50 --solutii "Sicher_C1_1_AB_Loesungen_ocr.pdf" --lectii L3
+echo.
+echo Flag-uri optionale (dupa interval):
+echo   --solutii "cheie.pdf"  ataseaza solutiile corelate din cheie (al doilea PDF din Z:\)
+echo   --lectii  L3           lectiile asteptate (L3 sau L3,L4); obligatoriu cu --solutii
+echo   --dry-run              afiseaza promptul fiecarei bucati in loc sa cheme claude
 echo.
 echo NOTA: foloseste un nume de PDF fara diacritice / caractere speciale.
 echo.
