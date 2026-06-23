@@ -314,6 +314,57 @@ Reguli specifice solutiilor:
 
 ---
 
+## Documente cu DOUA surse separate (exercitii + cheie in PDF-uri diferite)
+
+Unele manuale (ex. **Sicher C1.1**) au exercitiile intr-un PDF (Arbeitsbuch) si cheia de
+raspunsuri intr-un PDF **separat** (AB Lösungen). Cheia e organizata pe **„Lektion N"**, iar
+in fiecare lectie exercitiile au exact aceleasi etichete ca in manual (`1a`, `1b`, `2`, `3`,
+`4a`, `5a`…). Regula de corelare (validata pe Sicher C1.1 / Lektion 3):
+
+> **Exercitiul cu eticheta `Xy` din Lektion N are solutia la eticheta `Xy` sub titlul
+> „Lektion N" in cheie. Numerele/etichetele se potrivesc EXACT.**
+
+### Pasi
+
+1. **Detecteaza lectia fiecarei pagini** din titlul „Lektion N" / „LEKTION N" de pe pagina,
+   **confirmat pe imagine** (OCR-ul corupe cuvintele titlului, dar numarul lectiei trece de
+   regula corect). Paginile fara titlu mostenesc lectia paginii anterioare (continuare).
+   Daca nu poti determina lectia unei pagini, **opreste-te si cere-o explicit**.
+   Unealta: `python lectii.py map "EX.pdf" START-END` (si `verify` / `find` / `plan`).
+2. **Extrage in subfoldere separate** ca sa nu se suprascrie paginile cand numerele coincid:
+   exercitiile cu `python extrage.py <pagini> "EX.pdf" --sub ab` (sau direct in
+   `pagini_extrase/` daca nu e risc de coliziune), cheia cu
+   `python extrage.py <pagini_cheie> "CHEIE.pdf" --sub loes`. Paginile de cheie ale unei
+   lectii se afla cu `python lectii.py find "CHEIE.pdf" N` (sau `plan` pentru toate o data).
+3. **Coreleaza pe eticheta exacta**: pentru fiecare exercitiu `Xy` de pe paginile de
+   exercitii, ia solutia de la eticheta `Xy` de sub „Lektion N" in cheie.
+4. **Asaza solutia in ACELASI tabel cu exercitiul** (ca o continuare, nu tabel nou), printr-o
+   sectiune finala:
+   `['section', 'SOLUTII / LÖSUNGEN — Lektion N / Xy  (din cheie: Lektion N / Xy)']`.
+   **Adnotarea sursei** `(din cheie: Lektion N / Xy)` din eticheta sectiunii este
+   OBLIGATORIE — permite verificarea corelarii.
+
+### Capcane (aceleasi reguli ca la cheia clasica, plus)
+
+- **Cheia compacta e sistematic corupta de OCR** (ex. `1 i, 2 a` → `11,2a`). Corecteaz-o
+  OBLIGATORIU pe imaginea paginii de cheie si coreleaz-o cu enuntul exercitiului si cu
+  eventualele explicatii inainte de a o scrie. Bold pe litera-solutie (si pe litera-capcana).
+- **Reda FIDEL anomaliile de tipar din cheie** — daca cheia tiparita are o greseala (ex. la
+  Sicher C1.1 / Lektion 3, exercitiul **2a** cheia tiparita e `1 F, 2 A, 3 C, 5 B, 6 D` si
+  **omite pozitia 4**), scrie cheia **exact cum e tiparita** SI adauga un rand de avertizare
+  cu completarea logica (`4 → E`). **NU repara tacit** — semnaleaza vizibil discrepanta.
+- O pagina de cheie contine de regula mai multe parti (Teil 1, Fokus 1…) sau, la manualele pe
+  lectii, mai multe lectii; extrage si foloseste **doar** partea/lectia ceruta.
+
+### Automatizare
+
+`telc.bat` si `telc-batch.bat` accepta `--solutii "cheie.pdf" --lectii L3` (si `--dry-run`
+pentru a inspecta promptul). Batch-ul ruleaza garda `lectii.py verify` (se opreste daca
+lectiile de pe paginile de exercitii nu corespund cu `--lectii`) si injecteaza in prompt
+maparea lectie→pagini de cheie produsa de `lectii.py plan`.
+
+---
+
 ## Gestionarea erorilor frecvente
 
 ### Cannot find module 'docx'
